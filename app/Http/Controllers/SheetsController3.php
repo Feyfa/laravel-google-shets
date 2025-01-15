@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CampaignInformation;
 use Illuminate\Http\Request;
 use App\Services\GoogleSheet;
 
 class SheetsController3 extends Controller
 {
+    // name spreadsheet "jedun home 10:08"
+
     public function create()
     {
         $spreadsheetTitle = 'jedun home 10:08';
@@ -48,5 +51,61 @@ class SheetsController3 extends Controller
             ['00000000',date('m/d/Y h:i:s A'),'John','Doe','johndoe1-@example.com','johndoe2-@example.com','123-123-1234','567-567-5678','John Doe Street','suite 101','Columbus','OH','43055','keyword']
         ];
         $clientGoogle->saveDataToSheet($content, $spreadSheetID);
+    }
+
+    public function jidantest()
+    {
+        info("jidan test");
+
+        $advanceInformation = [];
+        $campaignInformation = CampaignInformation::where('status','active')->get();
+        foreach($campaignInformation as $item)
+        {
+            $advanceInformation = array_merge($advanceInformation, json_decode($item->description, true));
+        }
+
+        $spreadSheetID = "1_98lnHbpC1DM7oKj6Oxq7iqmhDjBZanceQ0l2TE9NNY";
+        $clientGoogle = new GoogleSheet();
+
+        $oldHeader = $clientGoogle->getHeader($spreadSheetID);
+
+        $newHeader = [
+            "ID",
+            "ClickDate",
+            "First Name",
+            "Last Name",
+            "Email1",
+            "Email2",
+            "Phone1",
+            "Phone2",
+            "Address1",
+            "Address2",
+            "City",
+            "State",
+            "Zipcode",
+            "Keyword"
+        ];
+        $newHeader = array_merge($newHeader, $advanceInformation);
+
+        $different = array_diff($newHeader, $oldHeader);
+        $indexOfDifferent = array_keys($different);
+
+        if(count($indexOfDifferent) > 0) 
+        {
+            foreach($indexOfDifferent as $item)
+            {
+                $clientGoogle->insertColumnInSheet($spreadSheetID, $item);
+            }
+            
+            $clientGoogle->updateHeader($spreadSheetID, $newHeader);
+        }
+
+        
+        return response()->json([
+            'oldHeader' => $oldHeader,
+            'newHeader' => $newHeader,
+            'different' => $different,
+            'indexOfDifferent' => $indexOfDifferent
+        ]);
     }
 }

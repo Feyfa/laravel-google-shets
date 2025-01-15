@@ -60,7 +60,7 @@ class GoogleSheet
                     $path = 'access_token_spreadsheet.json';
                     if(Storage::exists($path))
                     {
-                        Storage::put($path, $this->accessToken);
+                        Storage::put($path, json_encode($this->accessToken));
                     }
                     /* UPDATE ACCESS TOKEN */
                 }
@@ -215,6 +215,109 @@ class GoogleSheet
             $number = ($number - $temp - 1) / 26;
         }
         return $letter;
+    }
+
+    public function getHeader($spreadsheetId, $sheetNames)
+    {
+        /* GET SHEET NAMES */
+        // Mendapatkan metadata spreadsheet
+        $spreadsheet = $this->googleSheetService->spreadsheets->get($spreadsheetId);
+        $sheets = $spreadsheet->getSheets();
+        info('', ['sheets' => $sheets]);
+        // Mengambil semua nama sheet dari metadata
+        
+        $sheetNames = [];
+        foreach ($sheets as $sheet) 
+        {
+            $sheetNames[] = $sheet->properties->title;
+        }
+        info('', ['sheetNames' => $sheetNames]);
+
+        $firstSheetName = $sheetNames[0] ?? "";
+        /* GET SHEET NAMES */
+        
+        /* GET SPREADSHEET DATA */
+        $range = "{$sheetNames}!1:1";
+        $response = $this->googleSheetService->spreadsheets_values->get($spreadsheetId, $range);
+        $values = $response->getValues()[0];
+        info('', ['values' => $values]);
+        /* GET SPREADSHEET DATA */
+
+        return $values;
+    }
+
+    public function getSheetName($spreadsheetId)
+    {
+        /* GET SHEET NAMES */
+        // Mendapatkan metadata spreadsheet
+        $spreadsheet = $this->googleSheetService->spreadsheets->get($spreadsheetId);
+        $sheets = $spreadsheet->getSheets();
+        info('', ['sheets' => $sheets]);
+        // Mengambil semua nama sheet dari metadata
+        
+        $sheetNames = [];
+        foreach ($sheets as $sheet) 
+        {
+            $sheetNames[] = $sheet->properties->title;
+        }
+        info('', ['sheetNames' => $sheetNames]);
+
+        $firstSheetName = $sheetNames[0] ?? "";
+        /* GET SHEET NAMES */
+
+        return $firstSheetName;
+    }
+
+    public function insertColumnInSheet($spreadsheetId, $columnIndex)
+    {
+        // Menyisipkan kolom baru di posisi tertentu
+        $requests = [
+            new Google_Service_Sheets_Request([
+                'insertDimension' => [
+                    'range' => [
+                        'sheetId' => 0, // Sheet ID bisa didapatkan lewat Google Sheets API atau UI
+                        'dimension' => 'COLUMNS',
+                        'startIndex' => $columnIndex, // Indeks tempat kolom baru akan disisipkan
+                        'endIndex' => $columnIndex + 1, // Menyisipkan satu kolom baru
+                    ],
+                    'inheritFromBefore' => false, // Tidak mewarisi format dari kolom sebelumnya
+                ]
+            ])
+        ];
+
+        $batchUpdateRequest = new Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
+            'requests' => $requests
+        ]);
+
+        try {
+            $response = $this->googleSheetService->spreadsheets->batchUpdate($spreadsheetId, $batchUpdateRequest);
+            info("Kolom baru berhasil disisipkan!\n");
+        } catch (\Exception $e) {
+            info("Error: " . $e->getMessage());
+        }
+    }
+
+    public function updateHeader($spreadsheetId, $headerData)
+    {
+        $sheetName = $this->getSheetName($spreadsheetId);
+
+        // Memperbarui header setelah kolom baru ditambahkan
+        $range = "$sheetName!A1";  // Baris pertama (header)
+        $body = new Google_Service_Sheets_ValueRange([
+            'values' => [$headerData], // Data header yang diperbarui
+        ]);
+
+        try {
+            $this->googleSheetService->spreadsheets_values->update(
+                $spreadsheetId,
+                $range,
+                $body,
+                ['valueInputOption' => 'RAW']
+            );
+            info("Header berhasil diperbarui!\n");
+        } catch (\Exception $e) {
+            info("Error: " . $e->getMessage());
+        }
     }
 
     public function addHeader($spreadsheetId, $newHeader = [])

@@ -36,4 +36,5 @@ Route::prefix('v2')->group(function () {
     Route::get('/sheet/create', [SheetsController3::class, 'create']);
     Route::get('/sheet/add-header', [SheetsController3::class, 'addHeader']);
     Route::get('/sheet/add-data', [SheetsController3::class, 'addData']);
+    Route::get('/sheet/test', [SheetsController3::class, 'jidantest']);
 });

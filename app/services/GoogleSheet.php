@@ -217,24 +217,9 @@ class GoogleSheet
         return $letter;
     }
 
-    public function getHeader($spreadsheetId, $sheetNames)
-    {
-        /* GET SHEET NAMES */
-        // Mendapatkan metadata spreadsheet
-        $spreadsheet = $this->googleSheetService->spreadsheets->get($spreadsheetId);
-        $sheets = $spreadsheet->getSheets();
-        info('', ['sheets' => $sheets]);
-        // Mengambil semua nama sheet dari metadata
-        
-        $sheetNames = [];
-        foreach ($sheets as $sheet) 
-        {
-            $sheetNames[] = $sheet->properties->title;
-        }
-        info('', ['sheetNames' => $sheetNames]);
-
-        $firstSheetName = $sheetNames[0] ?? "";
-        /* GET SHEET NAMES */
+    public function getHeader($spreadsheetId)
+    {   
+        $sheetNames = $this->getSheetName($spreadsheetId);
         
         /* GET SPREADSHEET DATA */
         $range = "{$sheetNames}!1:1";
@@ -268,14 +253,14 @@ class GoogleSheet
         return $firstSheetName;
     }
 
-    public function insertColumnInSheet($spreadsheetId, $columnIndex)
+    public function insertColumnInSheet($spreadsheetId, $sheetID, $columnIndex)
     {
         // Menyisipkan kolom baru di posisi tertentu
         $requests = [
             new Google_Service_Sheets_Request([
                 'insertDimension' => [
                     'range' => [
-                        'sheetId' => 0, // Sheet ID bisa didapatkan lewat Google Sheets API atau UI
+                        'sheetId' => $sheetID, // Sheet ID bisa didapatkan lewat Google Sheets API atau UI
                         'dimension' => 'COLUMNS',
                         'startIndex' => $columnIndex, // Indeks tempat kolom baru akan disisipkan
                         'endIndex' => $columnIndex + 1, // Menyisipkan satu kolom baru
@@ -291,7 +276,7 @@ class GoogleSheet
 
         try {
             $response = $this->googleSheetService->spreadsheets->batchUpdate($spreadsheetId, $batchUpdateRequest);
-            info("Kolom baru berhasil disisipkan!\n");
+            info("Kolom baru berhasil disisipkan");
         } catch (\Exception $e) {
             info("Error: " . $e->getMessage());
         }
@@ -322,24 +307,27 @@ class GoogleSheet
 
     public function addHeader($spreadsheetId, $newHeader = [])
     {
-        /* GET SHEET NAMES */
-        // Mendapatkan metadata spreadsheet
-        $spreadsheet = $this->googleSheetService->spreadsheets->get($spreadsheetId);
-        $sheets = $spreadsheet->getSheets();
-        info('', ['sheets' => $sheets]);
-        // Mengambil semua nama sheet dari metadata
+        // /* GET SHEET NAMES */
+        // // Mendapatkan metadata spreadsheet
+        // $spreadsheet = $this->googleSheetService->spreadsheets->get($spreadsheetId);
+        // $sheets = $spreadsheet->getSheets();
+        // info('', ['sheets' => $sheets]);
+        // // Mengambil semua nama sheet dari metadata
         
-        $sheetNames = [];
-        foreach ($sheets as $sheet) 
-        {
-            $sheetNames[] = $sheet->properties->title;
-        }
-        info('', ['sheetNames' => $sheetNames]);
-        /* GET SHEET NAMES */
+        // $sheetNames = [];
+        // foreach ($sheets as $sheet) 
+        // {
+        //     $sheetNames[] = $sheet->properties->title;
+        // }
+        // info('', ['sheetNames' => $sheetNames]);
+        // /* GET SHEET NAMES */
 
+        
         /* GET SPREADSHEET DATA */
-        $firstSheetName = $sheetNames[0] ?? "";
-        $range = "{$firstSheetName}!1:1";
+        // $firstSheetName = $sheetNames[0] ?? "";
+
+        $sheetName = $this->getSheetName($spreadsheetId);
+        $range = "{$sheetName}!1:1";
 
         $response = $this->googleSheetService->spreadsheets_values->get($spreadsheetId, $range);
         $values = $response->getValues();
@@ -370,8 +358,50 @@ class GoogleSheet
                 $response = $this->googleSheetService->spreadsheets_values->update($spreadsheetId, $range, $valueRange, $options);
                 info('', ['response' => $response]);
                 /* UPDATE HEADER GOOGLE SHEET */
+
+                return true;
             }
         }
         /* ADD NEW HEADER */
+
+        return false;
+    }
+
+    public function getSheetID($spreadSheetId, $sheetName)
+    {
+        $response = $this->googleSheetService->spreadsheets->get($spreadSheetId); 
+        foreach($response['sheets'] as $rs) {
+            if ($rs['properties']['title'] == $sheetName) {
+                return $rs['properties']['sheetId'];
+                break;
+            }
+        }
+        return '';
+    }
+
+    public function showhideColumn($spreadSheetId,$sheetId,$colStartIndex,$colEndIndex,$hide = false) 
+    {
+        $requests = [
+            new Google_Service_Sheets_Request([
+                'updateDimensionProperties' => [
+                    'range' => [
+                        'sheetId' => $sheetId,
+                        "dimension" => 'COLUMNS',
+                        "startIndex" => $colStartIndex,
+                        "endIndex" => $colEndIndex,
+                    ],
+                    'properties' => [
+                        "hiddenByUser" => $hide,
+                    ],
+                    "fields" => 'hiddenByUser',
+                ]
+            ])
+        ];
+
+        $batchUpdateRequest = new Google_Service_Sheets_BatchUpdateSpreadsheetRequest([
+            'requests' => $requests
+        ]);
+
+        $response = $this->googleSheetService->spreadsheets->batchUpdate($spreadSheetId, $batchUpdateRequest); 
     }
 }

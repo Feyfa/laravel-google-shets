@@ -57,6 +57,8 @@ class SheetsController3 extends Controller
     {
         info("jidan test");
 
+        $campaignAdvanceInformation = [2,4,5,6,7,8,9,10];
+
         $advanceInformation = [];
         $campaignInformation = CampaignInformation::where('status','active')->get();
         foreach($campaignInformation as $item)
@@ -67,45 +69,106 @@ class SheetsController3 extends Controller
         $spreadSheetID = "1_98lnHbpC1DM7oKj6Oxq7iqmhDjBZanceQ0l2TE9NNY";
         $clientGoogle = new GoogleSheet();
 
+        $sheetName = $clientGoogle->getSheetName($spreadSheetID);
+        $sheetID = $clientGoogle->getSheetID($spreadSheetID, $sheetName);
         $oldHeader = $clientGoogle->getHeader($spreadSheetID);
 
-        $newHeader = [
-            "ID",
-            "ClickDate",
-            "First Name",
-            "Last Name",
-            "Email1",
-            "Email2",
-            "Phone1",
-            "Phone2",
-            "Address1",
-            "Address2",
-            "City",
-            "State",
-            "Zipcode",
-            "Keyword"
-        ];
-        $newHeader = array_merge($newHeader, $advanceInformation);
-
-        $different = array_diff($newHeader, $oldHeader);
-        $indexOfDifferent = array_keys($different);
-
-        if(count($indexOfDifferent) > 0) 
+        // cek apakah header nya belum ada sama sekali
+        $headerAdvanceInformationExists = false;
+        foreach($oldHeader as $item)
         {
-            foreach($indexOfDifferent as $item)
-            {
-                $clientGoogle->insertColumnInSheet($spreadSheetID, $item);
+            if(in_array($item, $advanceInformation)) {
+                $headerAdvanceInformationExists = true;
             }
+        }
+        // cek apakah header nya belum ada sama sekali
+
+        if(!$headerAdvanceInformationExists)
+        {
+            info('masuk untuk add header');
+            $result = $clientGoogle->addHeader($spreadSheetID, $advanceInformation);
+
+            // sembunyian colum yang tidak di uncheck
+            $campaignInformationNotInId = CampaignInformation::whereNotIn('id', $campaignAdvanceInformation)
+                                                             ->where('status', 'active')
+                                                             ->get();
+
+            foreach($campaignInformationNotInId as $item)
+            {
+                info('jalankan function showhideColumn');
+                $startIndex = intval($item->start_index);
+                $endIndex = intval($item->end_index + 1);
+                $clientGoogle->showhideColumn($spreadSheetID, $sheetID, $startIndex,$endIndex, 'T');
+            }
+            // sembunyian colum yang tidak di uncheck
+
+            return response()->json([
+                'result' => $result
+            ]);
+        }
+        else 
+        {
+            info('masuk untuk sisipkan column');
+            $newHeader = [
+                "ID",
+                "ClickDate",
+                "First Name",
+                "Last Name",
+                "Email1",
+                "Email2",
+                "Phone1",
+                "Phone2",
+                "Address1",
+                "Address2",
+                "City",
+                "State",
+                "Zipcode",
+                "Keyword"
+            ];
+            $newHeader = array_merge($newHeader, $advanceInformation);
+    
+            $different = array_diff($newHeader, $oldHeader);
+            $indexOfDifferent = array_keys($different);
+
+            info([
+                'indexOfDifferent' => $indexOfDifferent
+            ]);
+    
+            if(count($indexOfDifferent) > 0) 
+            {
+                info('jalankan function insertColumnInSheet');
+                foreach($indexOfDifferent as $item)
+                {
+                    $clientGoogle->insertColumnInSheet($spreadSheetID, $sheetID, $item);
+                }
+                
+                info('jalankan function updateHeader');
+                $clientGoogle->updateHeader($spreadSheetID, $newHeader);
+
+                // sembunyian colum yang tidak di uncheck
+                $campaignInformationNotInId = CampaignInformation::whereNotIn('id', $campaignAdvanceInformation)
+                                                                 ->where('status', 'active')
+                                                                 ->get();
+
+                foreach($campaignInformationNotInId as $item)
+                {
+                    info('jalankan function showhideColumn');
+                    $startIndex = intval($item->start_index);
+                    $endIndex = intval($item->end_index + 1);
+                    $clientGoogle->showhideColumn($spreadSheetID, $sheetID, $startIndex,$endIndex, 'T');
+                }
+                // sembunyian colum yang tidak di uncheck
+            }
+    
             
-            $clientGoogle->updateHeader($spreadSheetID, $newHeader);
+            return response()->json([
+                'oldHeader' => $oldHeader,
+                'newHeader' => $newHeader,
+                'different' => $different,
+                'indexOfDifferent' => $indexOfDifferent
+            ]);
         }
 
-        
-        return response()->json([
-            'oldHeader' => $oldHeader,
-            'newHeader' => $newHeader,
-            'different' => $different,
-            'indexOfDifferent' => $indexOfDifferent
-        ]);
+        return response()->json(['message'=>'success','headerAdvanceInformationExists' => $headerAdvanceInformationExists]);
     }
 }

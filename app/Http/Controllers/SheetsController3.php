@@ -44,13 +44,20 @@ class SheetsController3 extends Controller
         $clientGoogle = new GoogleSheet();
 
         $content = [
-            ['00000000',date('m/d/Y h:i:s A'),'John','Doe','johndoe1-@example.com','johndoe2-@example.com','123-123-1234','567-567-5678','John Doe Street','suite 101','Columbus','OH','43055','keyword','data1','data2','data3'],
-            ['00000000',date('m/d/Y h:i:s A'),'John','Doe','johndoe1-@example.com','johndoe2-@example.com','123-123-1234','567-567-5678','John Doe Street','suite 101','Columbus','OH','43055','keyword','data1','',''],
-            ['00000000',date('m/d/Y h:i:s A'),'John','Doe','johndoe1-@example.com','johndoe2-@example.com','123-123-1234','567-567-5678','John Doe Street','suite 101','Columbus','OH','43055','keyword','','data2',''],
-            ['00000000',date('m/d/Y h:i:s A'),'John','Doe','johndoe1-@example.com','johndoe2-@example.com','123-123-1234','567-567-5678','John Doe Street','suite 101','Columbus','OH','43055','keyword','','','data3'],
-            ['00000000',date('m/d/Y h:i:s A'),'John','Doe','johndoe1-@example.com','johndoe2-@example.com','123-123-1234','567-567-5678','John Doe Street','suite 101','Columbus','OH','43055','keyword']
+            ['00000000',date('m/d/Y h:i:s A'),'Baim','Doe','johndoe1-@example.com','johndoe2-@example.com','123-123-1234','567-567-5678','John Doe Street','suite 101','Columbus','OH','43055','keyword','data1','data2','data3'],
         ];
-        $clientGoogle->saveDataToSheet($content, $spreadSheetID);
+        $promise = $clientGoogle->saveDataToSheet($content, $spreadSheetID);
+
+        info('SYSTEM.OUT.PRINTLN(0)');
+        sleep(1);
+        info('SYSTEM.OUT.PRINTLN(1)');
+        sleep(1);
+        info('SYSTEM.OUT.PRINTLN(2)');
+        sleep(1);
+        info('SYSTEM.OUT.PRINTLN(3)');
+        sleep(5);
+
+        $promise->wait();
     }
 
     public function jidantest()

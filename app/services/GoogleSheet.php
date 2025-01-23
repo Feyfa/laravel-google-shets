@@ -11,6 +11,8 @@ use Google_Service_Sheets_Request;
 use Google_Service_Sheets_BatchUpdateSpreadsheetRequest;
 use Google_Service_Drive;
 use Google_Service_Drive_Permission;
+use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
 
 class GoogleSheet
 {
@@ -22,6 +24,7 @@ class GoogleSheet
 
     public function __construct()
     {
+        $startTime = microtime(true);
         $authConf = storage_path('app/google_client_secret.json');
 
         $this->client = new Google_Client();
@@ -66,6 +69,8 @@ class GoogleSheet
                 }
             }
         }
+        $endTime = microtime(true);
+        Log::info(['constructor' => round($endTime- $startTime, 2)]);
     }
 
     private function get_setting() 
@@ -143,30 +148,88 @@ class GoogleSheet
 
     public function saveDataToSheet(array $data, $spreadSheetId = "")
     {
+        $http = new Client();
+        $access_token = $this->client->getAccessToken()['access_token'];
+        
         if(!empty($spreadSheetId) && trim($spreadSheetId) != "") {
             $this->spreadSheetId = $spreadSheetId;
         }
-        
-        $dimensions = $this->getDimensions($this->spreadSheetId);
+
+        // // step one get range
+        // $dimensions = "";
+        // $dimensionRowCount = 0;
+        // $startTime = microtime(true);
+        // try
+        // {
+        //     $dimensions = $http->get("https://sheets.googleapis.com/v4/spreadsheets/$spreadSheetId/values/{$this->sheetId}A:A", [
+        //         'headers' => [
+        //             'Authorization' => "Bearer $access_token" ,
+        //         ],
+        //         'query' => [
+        //             'majorDimension' => 'COLUMNS',
+        //         ],
+        //     ]);
+        //     $dimensions = json_decode($dimensions->getBody()->getContents(), true);
+        // }
+        // catch (\Exception $e)
+        // {
+        //     Log::info(['error1' => $e->getMessage()]);
+        // }
+        // $endTime = microtime(true);
+        // info('dimension = ' . round($endTime - $startTime, 2));
+        // $dimensionRowCount = (isset($dimensions['values'][0]) && is_array($dimensions['values'][0]))?count($dimensions['values'][0]):0;
+        // $range = "A" . ($dimensionRowCount + 1);
+        // Log::info('', [
+        //     'dimensionRowCount' => $dimensionRowCount,
+        //     'range' => $range,
+        //     'dimension' => $dimensions
+        // ]);
+
+        $dimensions = $this->getDimensions($spreadSheetId);
+        $range = "A" . ($dimensions['rowCount'] + 1);
 
         $body = new Google_Service_Sheets_ValueRange([
             'values' => $data
         ]);
-
         $params = [
             'valueInputOption' => 'RAW',
             'insertDataOption' => 'INSERT_ROWS',
         ];
+        $options = [
+            'headers' => [
+                'Authorization' => "Bearer $access_token",
+                'Content-Type' => 'application/json',
+            ],
+            'json' => $body,
+            'query' => $params,
+        ];
+        return $http->postAsync("https://sheets.googleapis.com/v4/spreadsheets/{$this->spreadSheetId}/values/{$range}:append", $options);
 
-        $range = "A" . ($dimensions['rowCount'] + 1);
-
-        return $this->googleSheetService
-            ->spreadsheets_values
-            ->append($this->spreadSheetId, $range, $body, $params);
+        // $startTime = microtime(true);
+        // try 
+        // {
+        //     $http->post("https://sheets.googleapis.com/v4/spreadsheets/{$this->spreadSheetId}/values/{$range}:append", [
+        //         'headers' => [
+        //             'Authorization' => "Bearer $access_token",
+        //             'Content-Type' => 'application/json',
+        //         ],
+        //         'json' => $body,
+        //         'query' => $params,
+        //     ]);
+        // }
+        // catch (\Exception $e)
+        // {
+        //     Log::info(['error2' => $e->getMessage()]);
+        // }
+        // $endTime = microtime(true);
+        // info('insert = ' . round($endTime - $startTime, 2));
     }
 
     private function getDimensions($spreadSheetId)
     {
+        info([
+            'this->sheetId' => $this->sheetId
+        ]);
         $rowDimensions = $this->googleSheetService->spreadsheets_values->batchGet(
             $spreadSheetId,
             ['ranges' => $this->sheetId . 'A:A', 'majorDimension' => 'COLUMNS']
@@ -196,7 +259,10 @@ class GoogleSheet
                 'message' => 'missing row data'
             ];
         }
-
+        Log::info('', [
+            'rowMeta' => $rowMeta,
+            'colMeta' => $colMeta,
+        ]);
         return [
             'error' => false,
             'rowCount' => count($rowMeta[0]),
